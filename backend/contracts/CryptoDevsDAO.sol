@@ -73,6 +73,7 @@ contract CryptoDevsDAO is Ownable {
             "NFT not available for sale"
         );
         Proposal storage proposal = proposals[numProposals];
+        proposal.nftTokenId = _nftTokenId;
         // set the proposal's voting deadline
         proposal.deadline = block.timestamp + 5 minutes;
 

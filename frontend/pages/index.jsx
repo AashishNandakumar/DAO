@@ -5,11 +5,11 @@ import { formatEther } from "ethers/lib/utils";
 import { useEffect, useState, useRef } from "react";
 import Web3Modal from "web3modal";
 import {
-  CRYPTODEVS_DAO_ABI,
   CRYPTODEVS_DAO_CONTRACT_ADDRESS,
-  CRYPTODEVS_NFT_ABI,
   CRYPTODEVS_NFT_CONTRACT_ADDRESS,
-} from "../constants";
+  CRYPTODEVS_DAO_ABI,
+  CRYPTODEVS_NFT_ABI,
+} from "../constants/constants";
 
 function Home() {
   // ETH balance of DAO contract
@@ -31,7 +31,7 @@ function Home() {
   // check if the address is an owner
   const [isOwner, setIsOwner] = useState(false);
   // create an empty instance of web3modal
-  const web3ModalRef = useRef();
+  const web3ModalRef = useRef(null);
 
   // A helper function to connect wallet
   async function connectWallet() {
@@ -66,7 +66,7 @@ function Home() {
   async function withdrawDAOEther() {
     try {
       const signer = await getProviderOrSigner(true);
-      const contract = getDaoContractInstance();
+      const contract = getDaoContractInstance(signer);
 
       const tx = await contract.withdrawEther();
       setLoading(true);
@@ -110,6 +110,8 @@ function Home() {
       const signer = await getProviderOrSigner(true);
       const nftContract = getCryptodevsNFTContractInstance(signer);
       const balance = await nftContract.balanceOf(signer.getAddress());
+      // !
+      console.log(signer.getAddress());
       setNftBalance(parseInt(balance.toString()));
     } catch (err) {
       console.error(err);
@@ -137,7 +139,7 @@ function Home() {
     try {
       const provider = await getProviderOrSigner();
       const daoContract = getDaoContractInstance(provider);
-      const proposal = daoContract.proposals(id);
+      const proposal = await daoContract.proposals(id);
       const parsedProposal = {
         proposalId: id,
         nftTokenId: proposal.nftTokenId.toString(),
@@ -157,12 +159,12 @@ function Home() {
   async function fetchAllProposals() {
     try {
       // Assign with empty array
-      const proposals = [];
+      const proposalsz = [];
       for (let i = 0; i < numProposals; i++) {
         const proposal = await fetchProposalById(i);
-        proposals.push(proposal);
+        proposalsz.push(proposal);
       }
-      setProposals(proposals);
+      setProposals(proposalsz);
       return proposals;
     } catch (err) {
       console.error(err);
@@ -199,7 +201,7 @@ function Home() {
       setLoading(false);
       await fetchAllProposals();
       // !
-      getDAOTreasuryBalance();
+      await getDAOTreasuryBalance();
     } catch (err) {
       console.error(err);
       window.alert(err.reason);
@@ -211,8 +213,8 @@ function Home() {
     const provider = await web3ModalRef.current.connect();
     const web3Provider = new providers.Web3Provider(provider);
 
-    const { chainID } = await web3Provider.getNetwork();
-    if (chainID != 11155111) {
+    const { chainId } = await web3Provider.getNetwork();
+    if (chainId !== 11155111) {
       window.alert("Please change the network to Sepolia testnet");
       throw new Error("Please switch to Sepolia testnet");
     }
@@ -276,6 +278,160 @@ function Home() {
     }
     return null;
   }
+
+  // render a create proposal tabs
+  function renderCreateProposalsTab() {
+    if (loading) {
+      return (
+        <div className={styles.description}>
+          Loading... Waiting for transaction...
+        </div>
+      );
+    } else if (nftBalance === 0) {
+      return (
+        <div className={styles.description}>
+          You do not own any CryptoDevs NFTs. <br />
+          {/* Bold text */}
+          <b>You cannot create or vote on proposals!!!</b>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          <label>Fake NFT token ID to purchase: </label>
+          <input
+            className={styles.input}
+            placeholder="0"
+            type="number"
+            onChange={(e) => setFakeNftTokenId(e.target.value)}
+          />
+          <br />
+          <button className={styles.button3} onClick={createProposal}>
+            Create
+          </button>
+          <br />
+        </div>
+      );
+    }
+  }
+
+  // render a view proposals tab
+  function renderViewProposalsTab() {
+    if (loading) {
+      return (
+        <div className={styles.description}>
+          Loading...Waiting for transaction...
+        </div>
+      );
+    } else if (proposals.length === 0) {
+      return (
+        <div className={styles.description}>
+          <b>No proposals have been created yet!</b>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          {proposals.map((p, index) => (
+            <div key={index} className={styles.proposalCard}>
+              <p>Proposal ID: {p.proposalId}</p>
+              <p>Fake NFT ID to purchase: {p.nftTokenId}</p>
+              <p>Deadline: {p.deadline.toLocaleString()}</p>
+              <p>YES votes: {p.yesVotes}</p>
+              <p>NO Votes: {p.noVotes}</p>
+              <p>Executed?: {p.executed.toString()}</p>
+              {p.deadline.getTime() > Date.now() && !p.executed ? (
+                <div className={styles.flex}>
+                  <button
+                    className={styles.button2}
+                    onClick={() => voteOnProposal(p.proposalId, "YES")}
+                  >
+                    Vote YES
+                  </button>
+                  <button
+                    className={styles.button2}
+                    onClick={() => voteOnProposal(p.proposalId, "NO")}
+                  >
+                    Vote NO
+                  </button>
+                </div>
+              ) : p.deadline.getTime() < Date.now() && !p.executed ? (
+                <div className={styles.flex}>
+                  <button
+                    className={styles.button2}
+                    onClick={() => executeProposal(p.proposalId)}
+                  >
+                    Execute Proposal {p.YesVotes > p.NoVotes ? "(YES)" : "(NO)"}
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.description}>
+                  <b>Proposal Executed</b>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+  }
+
+  return (
+    <div>
+      <Head>
+        <title>CryptoDevs DAO</title>
+        <meta name="description" content="CryptoDevs DAO" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+
+      <div className={styles.main}>
+        <div>
+          <h1 className={styles.title}>Welcome to Crypto Devs</h1>
+          <div className={styles.description}>Welcome to DAO</div>
+          <div className={styles.description}>
+            Your CryptoDevs NFT Balance: <b>{nftBalance}</b>
+            <br />
+            Treasury Balance: <b>{formatEther(treasuryBalance)} ETH</b>
+            <br />
+            Total Number of Proposals: <b>{numProposals}</b>
+          </div>
+          <div className={styles.flex}>
+            <button
+              className={styles.button}
+              onClick={() => setSelectedTab("Create Proposal")}
+            >
+              Create Proposal
+            </button>
+            <button
+              className={styles.button}
+              onClick={() => setSelectedTab("View Proposals")}
+            >
+              View Proposals
+            </button>
+          </div>
+          {renderTabs()}
+          {/* display withdraw button if the address is owner */}
+          {isOwner ? (
+            <div>
+              {loading ? (
+                <button className={styles.button}>Loading...</button>
+              ) : (
+                <button className={styles.button} onClick={withdrawDAOEther}>
+                  Withdraw DAO ETH
+                </button>
+              )}
+            </div>
+          ) : (
+            ""
+          )}
+        </div>
+        <div>
+          <img className={styles.image} src="/cryptodevs/0.svg" />
+        </div>
+      </div>
+      <footer className={styles.footer}>Made with &#10084; by Ash Devs</footer>
+    </div>
+  );
 }
 
 export default Home;
