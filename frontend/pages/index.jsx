@@ -10,7 +10,8 @@ import {
   CRYPTODEVS_DAO_ABI,
   CRYPTODEVS_NFT_ABI,
 } from "../constants/constants";
-
+import Help from "./help";
+import Link from "next/link";
 function Home() {
   // ETH balance of DAO contract
   const [treasuryBalance, setTreasuryBalance] = useState("0");
@@ -383,7 +384,12 @@ function Home() {
         <meta name="description" content="CryptoDevs DAO" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-
+      {/* Adding a ROUTER  */}
+      {/* <header>
+        <Link href="/help">
+          <button className={styles.button}>HELP</button>
+        </Link>
+      </header> */}
       <div className={styles.main}>
         <div>
           <h1 className={styles.title}>Welcome to Crypto Devs</h1>
